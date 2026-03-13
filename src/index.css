@@ -39,3 +39,79 @@ html,body,#root{height:100%;background:var(--bg);color:var(--text);font-family:'
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
 @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+/* ─── MOBILE RESPONSIVE ─────────────────────────────────────────────── */
+
+/* Topbar: sembunyikan label tab, tampilkan hanya icon di mobile */
+@media (max-width: 480px) {
+  .tab-label-text { display: none; }
+  .tab-icon { display: inline; }
+  .logo-text-full { display: none; }
+  .logo-text-short { display: inline; }
+  .btn-donate-text { display: none; }
+  .btn-key-text-full { display: none; }
+  .btn-key-text-short { display: inline; }
+}
+
+@media (min-width: 481px) {
+  .tab-label-text { display: inline; }
+  .tab-icon { display: none; }
+  .logo-text-full { display: inline; }
+  .logo-text-short { display: none; }
+  .btn-donate-text { display: inline; }
+  .btn-key-text-full { display: inline; }
+  .btn-key-text-short { display: none; }
+}
+
+/* Setup screen grid: 1 kolom di mobile */
+@media (max-width: 640px) {
+  .setup-grid {
+    grid-template-columns: 1fr !important;
+    padding: 0 12px !important;
+  }
+  .setup-hero {
+    padding: 24px 16px 20px !important;
+  }
+  .setup-hero h1 {
+    font-size: 28px !important;
+  }
+  .setup-start-btn {
+    width: 100% !important;
+    padding: 14px 20px !important;
+  }
+}
+
+/* Chat bubble max-width lebih lebar di mobile */
+@media (max-width: 480px) {
+  .chat-bubble-wrap {
+    max-width: calc(100% - 44px) !important;
+  }
+  .prep-q-body {
+    padding-left: 14px !important;
+  }
+}
+
+/* Input area padding lebih kecil di mobile */
+@media (max-width: 480px) {
+  .input-area-wrap {
+    padding: 8px 10px 12px !important;
+  }
+}
+
+/* Modal choice full width di mobile */
+@media (max-width: 480px) {
+  .choice-modal {
+    padding: 20px 16px !important;
+    border-radius: 16px !important;
+  }
+}
+
+/* Prevent zoom on input focus di iOS */
+input, textarea, select {
+  font-size: 16px !important;
+}
+@media (min-width: 481px) {
+  input, textarea, select {
+    font-size: 13.5px !important;
+  }
+}
