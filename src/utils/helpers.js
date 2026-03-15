@@ -51,15 +51,37 @@ Always maintain full conversation history — refer back to earlier answers when
 Generate 8 interview questions most likely to be asked for this candidate and position.
 
 OUTPUT FORMAT — raw JSON array only, no markdown, no explanation:
-[{"q":"question","tip":"saran singkat bahasa Indonesia","answer":"contoh jawaban","phrases":["phrase 1","phrase 2"]}]
+[{"q":"question","tip":"saran singkat","answer":"contoh jawaban","warning":"jebakan umum"}]
 
-RULES:
-- q: question in ${lang === 'Both (campur)' ? 'English' : lang}
-- tip: max 20 words in Indonesian, specific to this candidate's background
-- answer: complete ready-to-use answer in ${answerLang}, first person as ${candidateName}, using their actual background. 2-4 sentences, natural, confident, with connectors. NO placeholder brackets — use real data from profile.
-- phrases: exactly 2 connector phrases used in the answer
+FIELD RULES:
+- q: the interview question in ${lang === 'Both (campur)' ? 'English' : lang}
+- tip: max 20 words in Bahasa Indonesia, specific practical advice for this candidate based on their background
+- answer: complete ready-to-use example answer in ${answerLang}, first person as ${candidateName}, using their actual background (name, education, experience, skills). 2-4 sentences, natural and confident. NO placeholder brackets — use real profile data.
+- warning: one short sentence in Bahasa Indonesia about the most common mistake candidates make when answering this specific question, and how to avoid it. If not applicable, omit this field entirely.
 - No double quotes inside string values — use single quotes or rephrase
-- No newlines inside strings`
+- No newlines inside strings
+- Output raw JSON only, no explanation`
+  }
+
+  // ── Predict single question mode (for custom Q&A) ──
+  if (mode === 'predict_one') {
+    const answerLang = isFull ? 'English' : isIndo ? 'Bahasa Indonesia' : 'English'
+    return base + `
+=== YOUR TASK: ANSWER GUIDANCE FOR A SPECIFIC QUESTION ===
+The candidate will give you a specific interview question they want help answering.
+Return a single JSON object (NOT an array) with answer guidance for that exact question.
+
+OUTPUT FORMAT — raw JSON object only, no markdown, no explanation:
+{"q":"the question as given","tip":"saran singkat","answer":"contoh jawaban","warning":"jebakan umum"}
+
+FIELD RULES:
+- q: the question exactly as the candidate wrote it
+- tip: max 20 words in Bahasa Indonesia, specific practical advice for this candidate for this exact question
+- answer: complete ready-to-use example answer in ${answerLang}, first person as ${candidateName}, using their actual background. 2-4 sentences, natural and confident. NO placeholder brackets — use real profile data.
+- warning: one short sentence in Bahasa Indonesia about the most common mistake when answering this specific question. If not applicable, omit this field.
+- No double quotes inside string values — use single quotes or rephrase
+- No newlines inside strings
+- Output raw JSON only, no explanation`
   }
 
   // ── Interview mode (default) ──
@@ -91,10 +113,7 @@ After a candidate answers an interview question, respond with this structure:
 [1-2 specific, kind observations: what was strong, what to improve — be concrete about grammar, structure, or content]
 
 ✨ VERSI LEBIH BAIK
-[Rewrite their answer in better ${isFull ? 'English' : isIndo ? 'Bahasa Indonesia' : 'English'}, first person as ${candidateName}. Same content, clearer structure and connectors.]
-
-💡 KEY PHRASES
-[2-3 connector phrases from the improved version, with ${isFull ? 'a usage note' : 'Indonesian translation'}]
+[Rewrite their answer in better ${isFull ? 'English' : isIndo ? 'Bahasa Indonesia' : 'English'}, first person as ${candidateName}. Same content, clearer structure and natural flow.]
 
 ➡️ ${isFull ? 'NEXT QUESTION' : isMix ? 'PERTANYAAN SELANJUTNYA (Next Question)' : 'PERTANYAAN SELANJUTNYA'}
 [Ask the next relevant interview question]
@@ -104,30 +123,30 @@ After a candidate answers an interview question, respond with this structure:
 Read the intent and respond naturally. Do NOT force the interview structure onto non-interview messages. Examples:
 
 • "Terjemahkan jawaban saya" / "Make this sound better" / "Versi Inggrisnya gimana?"
-→ Rewrite their message as a polished interview answer in the target language. No feedback section needed, just the improved version and 1-2 key phrases.
+→ Rewrite their message as a polished interview answer in the target language. Just the improved version, no extra structure needed.
 
 • Pastes or asks about a specific question they want help answering
-→ Give a complete, ready-to-use example answer using their actual profile. Then briefly explain what makes it effective.
+→ Give a complete, ready-to-use example answer using their actual profile. Briefly explain what makes it strong.
 
 • "Bagaimana cara lebih percaya diri?" / "Saya nervous banget" / confidence-related
-→ Respond as a supportive coach. Give 2-3 concrete, personalized tips based on their specific struggles and background. Be warm and human.
+→ Respond as a supportive coach. Give 2-3 concrete, personalized tips based on their specific struggles. Be warm and human.
 
-• "Apa itu app ini?" / "Bagaimana ini membantu saya?" / questions about the app
-→ Explain clearly: this app helps them practice for job interviews using AI. They can predict likely questions, get example answers, and do live mock interview sessions with real-time feedback. Everything is personalized to their profile.
+• "Apa itu app ini?" / "Bagaimana ini membantu saya?"
+→ Explain: this app helps practice job interviews with AI — predict likely questions, get example answers, do live mock sessions with real-time feedback. All personalized to their profile.
 
 • "Kenapa jawabanku tadi kurang bagus?" / "Apa yang salah dari tadi?"
-→ Review their previous answer(s) from the conversation history. Be specific and constructive.
+→ Review their previous answer(s) from conversation history. Be specific and constructive.
 
-• "Pahami profil saya" / "Ceritakan tentang saya" / profile questions
-→ Summarize what you know about them from the profile and explain how it positions them for ${targetJob}. Highlight their strengths for this role.
+• "Pahami profil saya" / profile-related questions
+→ Summarize what you know about them and explain how it positions them for ${targetJob}. Highlight their strengths.
 
-• Any other request → use your best judgment to help them prepare. You are a coach, not just a question-asking machine.
+• Any other request → use your best judgment to help them prepare.
 
 ─── GENERAL PRINCIPLES ───
-- Always be encouraging. Nervousness and mistakes are normal — your job is to build their confidence.
+- Always be encouraging. Nervousness and mistakes are normal.
 - Never robotically repeat the feedback structure if the conversation calls for something else.
 - If unsure what they want, ask one short clarifying question.
-- Keep responses focused and not too long — quality over quantity.`
+- Keep responses focused — quality over quantity.`
 }
 
 // ─── Call AI (Gemini) ──────────────────────────────────────────────────────
@@ -180,27 +199,61 @@ export async function callAI({ apiKey, system, messages, maxTokens = 2000, files
   return data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || ''
 }
 
-// ─── Robust JSON parser for predict responses ─────────────────────────────
+// ─── JSON parser for predict responses ───────────────────────────────────
 export function parseQuestionsJSON(raw) {
   const clean = raw.replace(/```json|```/g, '').trim()
   try {
     const start = clean.indexOf('[')
     const end = clean.lastIndexOf(']')
     if (start !== -1 && end !== -1) {
-      return JSON.parse(clean.slice(start, end + 1))
+      const parsed = JSON.parse(clean.slice(start, end + 1))
+      return parsed.map(item => ({
+        q: item.q || '',
+        tip: item.tip || '',
+        answer: item.answer || '',
+        warning: item.warning || '',
+      }))
     }
   } catch {}
 
-  const matches = [...clean.matchAll(/\{[^{}]*"q"\s*:\s*"([\s\S]*?)"[^{}]*"tip"\s*:\s*"([\s\S]*?)"[^{}]*"phrases"\s*:\s*\[([\s\S]*?)\][^{}]*\}/g)]
+  // Fallback regex
+  const matches = [...clean.matchAll(/\{\s*"q"\s*:\s*"([\s\S]*?)"\s*,\s*"tip"\s*:\s*"([\s\S]*?)"\s*,\s*"answer"\s*:\s*"([\s\S]*?)"[\s\S]*?\}/g)]
   if (matches.length > 0) {
     return matches.map(m => ({
       q: m[1].replace(/"/g, "'").trim(),
       tip: m[2].replace(/"/g, "'").trim(),
-      answer: '',
-      phrases: [...m[3].matchAll(/"([^"]+)"/g)].map(p => p[1]),
+      answer: m[3].replace(/"/g, "'").trim(),
+      warning: '',
     }))
   }
   throw new Error('Format respons AI tidak valid. Coba generate ulang.')
+}
+
+// ─── JSON parser for single question (custom Q&A) ─────────────────────────
+export function parseOneQuestionJSON(raw) {
+  const clean = raw.replace(/```json|```/g, '').trim()
+  try {
+    // Try object first
+    const start = clean.indexOf('{')
+    const end = clean.lastIndexOf('}')
+    if (start !== -1 && end !== -1) {
+      const parsed = JSON.parse(clean.slice(start, end + 1))
+      return {
+        q: parsed.q || '',
+        tip: parsed.tip || '',
+        answer: parsed.answer || '',
+        warning: parsed.warning || '',
+      }
+    }
+    // Fallback: maybe it returned an array with one item
+    const aStart = clean.indexOf('[')
+    const aEnd = clean.lastIndexOf(']')
+    if (aStart !== -1 && aEnd !== -1) {
+      const arr = JSON.parse(clean.slice(aStart, aEnd + 1))
+      if (arr.length > 0) return { q: arr[0].q || '', tip: arr[0].tip || '', answer: arr[0].answer || '', warning: arr[0].warning || '' }
+    }
+  } catch {}
+  throw new Error('Format respons AI tidak valid. Coba ulang.')
 }
 
 // ─── File reader helpers ──────────────────────────────────────────────────
