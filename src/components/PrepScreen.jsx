@@ -3,11 +3,14 @@ import { buildSystemPrompt, callAI, parseQuestionsJSON } from '../utils/helpers.
 import { Icon } from '../App.jsx'
 
 export default function PrepScreen({ profile, apiKey, uploadedFiles, onStartInterview, onBack }) {
-  const [questions, setQuestions]     = useState([])
-  const [loading, setLoading]         = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [error, setError]             = useState('')
-  const [expanded, setExpanded]       = useState(null)
+  const [questions, setQuestions]         = useState([])
+  const [loading, setLoading]             = useState(true)
+  const [loadingMore, setLoadingMore]     = useState(false)
+  const [error, setError]                 = useState('')
+  const [expanded, setExpanded]           = useState(null)
+  const [customQ, setCustomQ]             = useState('')
+  const [customResult, setCustomResult]   = useState(null)
+  const [customLoading, setCustomLoading] = useState(false)
 
   useEffect(() => { generate() }, [])
 
@@ -31,6 +34,21 @@ export default function PrepScreen({ profile, apiKey, uploadedFiles, onStartInte
       else alert('Gagal: ' + e.message)
     }
     append ? setLoadingMore(false) : setLoading(false)
+  }
+
+  const askCustom = async () => {
+    if (!customQ.trim()) return
+    setCustomLoading(true); setCustomResult(null)
+    try {
+      const system = buildSystemPrompt(profile, 'interview')
+      const raw = await callAI({
+        apiKey, system,
+        messages: [{ role:'user', content: `[SARAN JAWABAN] ${customQ.trim()}` }],
+        maxTokens: 1500,
+      })
+      setCustomResult(raw)
+    } catch (e) { setCustomResult('Gagal: ' + e.message) }
+    setCustomLoading(false)
   }
 
   const deleteQ = (i) => setQuestions(prev => prev.filter((_, idx) => idx !== i))
@@ -93,12 +111,12 @@ export default function PrepScreen({ profile, apiKey, uploadedFiles, onStartInte
                   {questions.length} pertanyaan diprediksi
                   {uploadedFiles?.length > 0 && (
                     <span style={{ color:'var(--green)',fontSize:12,marginLeft:8 }}>
-                      <Icon name="clip" size={12} color="var(--green)" /> berdasarkan dokumen kamu
+                      <Icon name="clip" size={12} color="var(--green)" /> dari dokumen kamu
                     </span>
                   )}
                 </div>
                 <div style={{ fontSize:12.5,color:'var(--text2)' }}>
-                  Klik pertanyaan untuk lihat contoh jawaban, tips &amp; key phrases.
+                  Klik pertanyaan untuk tips & contoh jawaban. Tanya AI di bawah untuk pertanyaan spesifik.
                 </div>
               </div>
               <button style={moreBtn} onClick={() => generate(true)} disabled={loadingMore}>
@@ -125,15 +143,12 @@ export default function PrepScreen({ profile, apiKey, uploadedFiles, onStartInte
 
                   {expanded === i && (
                     <div style={qBody} onClick={e => e.stopPropagation()}>
-                      {/* Tip */}
                       <div style={tipBox}>
                         <div style={tipLabel}>
                           <Icon name="lightbulb" size={13} color="var(--green)" /> Tips
                         </div>
                         <div style={{ fontSize:13.5,color:'var(--text2)',lineHeight:1.7 }}>{item.tip}</div>
                       </div>
-
-                      {/* Contoh jawaban */}
                       {item.answer && (
                         <div style={answerBox}>
                           <div style={answerLabel}>
@@ -143,8 +158,6 @@ export default function PrepScreen({ profile, apiKey, uploadedFiles, onStartInte
                           <div style={answerNote}>Ini hanya contoh — sesuaikan dengan kata-katamu sendiri</div>
                         </div>
                       )}
-
-                      {/* Key phrases */}
                       {item.phrases?.length > 0 && (
                         <div style={phraseBox}>
                           <div style={phraseLabel}>
@@ -161,6 +174,60 @@ export default function PrepScreen({ profile, apiKey, uploadedFiles, onStartInte
               ))}
             </div>
           </>
+        )}
+
+        {/* ── Tanya Saran Jawaban ── */}
+        {!loading && (
+          <div style={customSection}>
+            <div style={customHeader}>
+              <Icon name="chat" size={17} color="var(--amber)" />
+              <div>
+                <div style={{ fontSize:14,fontWeight:600,color:'var(--text)' }}>Tanya Saran Jawaban</div>
+                <div style={{ fontSize:12,color:'var(--text3)',marginTop:2 }}>
+                  Ada pertanyaan spesifik? Tulis di sini — AI kasih contoh jawaban siap pakai.
+                </div>
+              </div>
+            </div>
+
+            <textarea
+              style={customInput}
+              value={customQ}
+              onChange={e => setCustomQ(e.target.value)}
+              placeholder={'Contoh: "Bagaimana jawab kalau ditanya tell me about yourself?" atau ketik langsung pertanyaan interviewernya'}
+              rows={3}
+              onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); askCustom() } }}
+            />
+
+            <div style={{ display:'flex',justifyContent:'flex-end',marginTop:8 }}>
+              <button
+                style={askBtn(customLoading || !customQ.trim())}
+                disabled={customLoading || !customQ.trim()}
+                onClick={askCustom}
+              >
+                {customLoading
+                  ? <><div style={miniSpinner} /> Memproses...</>
+                  : <><Icon name="send" size={14} color="#1a0f00" /> Minta Saran</>
+                }
+              </button>
+            </div>
+
+            {customResult && !customLoading && (
+              <div style={customResultBox}>
+                <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:10 }}>
+                  <Icon name="circle_ok" size={14} color="var(--amber)" />
+                  <span style={{ fontSize:11,color:'var(--amber)',fontWeight:700,letterSpacing:'0.06em',fontFamily:'JetBrains Mono,monospace' }}>SARAN AI</span>
+                </div>
+                {customResult.split('\n').map((line, i) => {
+                  if (line.trim() === '') return <br key={i} />
+                  return <div key={i} style={{ fontSize:13.5,color:'var(--text2)',lineHeight:1.7,margin:'2px 0' }}>{line}</div>
+                })}
+                <button style={{ ...retryBtn,marginTop:12,fontSize:11,display:'flex',alignItems:'center',gap:5 }}
+                  onClick={() => { setCustomResult(null); setCustomQ('') }}>
+                  <Icon name="x" size={12} color="var(--text2)" /> Tutup
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -192,7 +259,7 @@ const startBtn    = { display:'flex',alignItems:'center',gap:6,background:'linea
 const content     = { flex:1,overflowY:'auto',padding:'20px 16px',display:'flex',flexDirection:'column',gap:12 }
 const loadWrap    = { display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:300 }
 const spinner     = { width:36,height:36,border:'3px solid var(--border)',borderTopColor:'var(--amber)',borderRadius:'50%',animation:'spin .8s linear infinite' }
-const miniSpinner = { width:14,height:14,border:'2px solid var(--border)',borderTopColor:'var(--text2)',borderRadius:'50%',animation:'spin .8s linear infinite' }
+const miniSpinner = { width:14,height:14,border:'2px solid var(--border)',borderTopColor:'var(--text2)',borderRadius:'50%',animation:'spin .8s linear infinite',flexShrink:0 }
 const errBox      = { background:'var(--red-dim)',border:'1px solid rgba(248,113,113,0.2)',borderRadius:14,padding:20 }
 const retryBtn    = { display:'flex',alignItems:'center',gap:6,background:'var(--bg)',border:'1px solid var(--border)',color:'var(--text2)',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontFamily:'Space Grotesk,sans-serif' }
 const intro       = { display:'flex',gap:12,alignItems:'center',background:'var(--amber-dim)',border:'1px solid var(--amber-border)',borderRadius:12,padding:'12px 14px' }
@@ -215,6 +282,11 @@ const phraseBox   = { background:'rgba(245,158,11,0.04)',border:'1px solid var(-
 const phraseLabel = { display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--amber)',fontWeight:700,letterSpacing:'0.06em',marginBottom:8,textTransform:'uppercase' }
 const phraseGrid  = { display:'flex',flexWrap:'wrap',gap:6 }
 const phraseItem  = { background:'rgba(245,158,11,0.1)',color:'var(--amber)',fontSize:12,padding:'4px 10px',borderRadius:20,fontFamily:'JetBrains Mono,monospace' }
-const bottomCTA   = { padding:'14px 20px 18px',borderTop:'1px solid var(--border)',background:'var(--bg)',textAlign:'center',flexShrink:0 }
-const bigStartBtn = { display:'flex',alignItems:'center',gap:8,background:'linear-gradient(135deg,#f59e0b,#d97706)',border:'none',color:'#1a0f00',padding:'12px 28px',borderRadius:50,cursor:'pointer',fontSize:14.5,fontWeight:700,fontFamily:'Space Grotesk,sans-serif',boxShadow:'0 4px 20px rgba(245,158,11,0.3)' }
+const customSection   = { background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:16,padding:16 }
+const customHeader    = { display:'flex',gap:10,alignItems:'flex-start',marginBottom:14 }
+const customInput     = { width:'100%',background:'var(--bg)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 14px',color:'var(--text)',fontSize:13.5,fontFamily:'Space Grotesk,sans-serif',outline:'none',resize:'vertical',lineHeight:1.55 }
+const askBtn          = d => ({ display:'flex',alignItems:'center',gap:7,padding:'10px 20px',borderRadius:10,border:'none',background:d?'var(--bg3)':'linear-gradient(135deg,#f59e0b,#d97706)',color:d?'var(--text3)':'#1a0f00',cursor:d?'not-allowed':'pointer',fontSize:13.5,fontWeight:600,fontFamily:'Space Grotesk,sans-serif' })
+const customResultBox = { background:'var(--bg)',border:'1px solid var(--amber-border)',borderRadius:12,padding:'14px 16px',marginTop:12 }
+const bottomCTA    = { padding:'14px 20px 18px',borderTop:'1px solid var(--border)',background:'var(--bg)',textAlign:'center',flexShrink:0 }
+const bigStartBtn  = { display:'flex',alignItems:'center',gap:8,background:'linear-gradient(135deg,#f59e0b,#d97706)',border:'none',color:'#1a0f00',padding:'12px 28px',borderRadius:50,cursor:'pointer',fontSize:14.5,fontWeight:700,fontFamily:'Space Grotesk,sans-serif',boxShadow:'0 4px 20px rgba(245,158,11,0.3)' }
 const secondaryBtn = { display:'flex',alignItems:'center',gap:7,background:'rgba(255,255,255,0.05)',border:'1px solid var(--border)',color:'var(--text2)',padding:'12px 20px',borderRadius:50,cursor:'pointer',fontSize:13.5,fontFamily:'Space Grotesk,sans-serif' }
