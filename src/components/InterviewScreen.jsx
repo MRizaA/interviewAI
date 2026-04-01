@@ -84,6 +84,17 @@ function useTTS(lang) {
   return { speakingIdx, speak, stop }
 }
 
+// ─── Avatar AI ────────────────────────────────────────────────────────────
+const AiAvatar = () => (
+  <div style={sAva('assistant')}>
+    <img
+      src="/img/logo/logo_v2.svg"
+      alt="AI"
+      style={{ width:50, height:50, }}
+    />
+  </div>
+)
+
 // ─── Komponen utama ────────────────────────────────────────────────────────
 export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack }) {
   const [msgs, setMsgs]                 = useState([])
@@ -208,13 +219,10 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
         {msgs.map((m, i) => (
           <div key={i} style={{ display:'flex',gap:10,flexDirection:m.role==='user'?'row-reverse':'row',animation:'fadeUp .25s ease',marginBottom:16 }}>
             {/* Avatar */}
-            <div style={sAva(m.role)}>
-              <Icon
-                name={m.role === 'assistant' ? 'mic' : 'user'}
-                size={16}
-                color={m.role === 'assistant' ? 'var(--amber)' : 'var(--blue)'}
-              />
-            </div>
+            {m.role === 'assistant'
+              ? <AiAvatar />
+              : <div style={sAva('user')}><Icon name="user" size={16} color="var(--blue)" /></div>
+            }
             <div style={{ display:'flex',flexDirection:'column',gap:4,maxWidth:'calc(100% - 60px)',alignItems:m.role==='user'?'flex-end':'flex-start' }}>
               <div style={sBubble(m.role)}>
                 {m.role === 'user' ? m.content : parseMsg(m.content)}
@@ -239,9 +247,7 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
         {/* Loading dots */}
         {loading && msgs.length > 0 && (
           <div style={{ display:'flex',gap:10,marginBottom:16 }}>
-            <div style={sAva('assistant')}>
-              <Icon name="mic" size={16} color="var(--amber)" />
-            </div>
+            <AiAvatar />
             <div style={{ ...sBubble('assistant'),display:'flex',alignItems:'center',gap:6,padding:'14px 16px' }}>
               {[0, 0.15, 0.3].map((d, i) => (
                 <div key={i} style={{ width:7,height:7,borderRadius:'50%',background:['var(--amber)','var(--green)','var(--blue)'][i],animation:`bounce 1.2s ${d}s infinite` }} />
@@ -256,7 +262,6 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
       {/* Input area */}
       {msgs.length > 0 && (
         <div style={sInputArea}>
-          {/* Listening bar */}
           {listening && (
             <div style={sListeningBar}>
               <div style={sListeningDot} />
@@ -267,7 +272,6 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
             </div>
           )}
 
-          {/* Pending files */}
           {pendingFiles.length > 0 && (
             <div style={{ display:'flex',gap:6,flexWrap:'wrap',marginBottom:8 }}>
               {pendingFiles.map((f, i) => (
@@ -283,7 +287,6 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
             </div>
           )}
 
-          {/* Input row */}
           <div style={sInputRow}>
             <button style={sIconBtn} onClick={() => fileRef.current?.click()} title="Lampirkan file">
               <Icon name="clip" size={18} color="var(--text3)" />

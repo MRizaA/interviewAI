@@ -85,11 +85,15 @@ export default function App() {
       <header style={topBar}>
         {/* Logo */}
         <div style={logo}>
-          <span style={logoDot} />
+          <img
+            src="/img/logo/logo_v2.svg"
+            alt="Interview.AI logo"
+            style={{ width:22, height:22, flexShrink:0 }}
+          />
           <span style={logoText}>Interview<span style={{ color:'var(--amber)' }}>.AI</span></span>
         </div>
 
-        {/* Desktop tabs — hidden on mobile via CSS */}
+        {/* Desktop tabs */}
         <nav style={desktopTabs} className="desktop-nav">
           {NAV.map(({ id, icon, label }) => {
             const idx      = NAV.findIndex(n => n.id === id)
@@ -239,23 +243,17 @@ export default function App() {
         button:active { transform:scale(.97) }
         button:hover:not(:disabled) { opacity:.85 }
 
-        /* Desktop: show top nav, hide bottom nav */
         @media (min-width: 641px) {
           .mobile-nav { display: none !important; }
           .desktop-nav { display: flex !important; }
           .btn-label { display: inline !important; }
         }
-
-        /* Mobile: hide top nav, show bottom nav */
         @media (max-width: 640px) {
           .mobile-nav { display: flex !important; }
           .desktop-nav { display: none !important; }
           .btn-label { display: none !important; }
-          /* Beri ruang untuk bottom nav */
           main { padding-bottom: 64px; }
         }
-
-        /* Prevent zoom on input focus (iOS) */
         @media (max-width: 640px) {
           input, textarea, select { font-size: 16px !important; }
         }
@@ -267,8 +265,7 @@ export default function App() {
 // ─── Styles ────────────────────────────────────────────────────────────────
 const appWrap     = { height:'100dvh', display:'flex', flexDirection:'column', overflow:'hidden' }
 const topBar      = { display:'flex', alignItems:'center', gap:8, padding:'0 12px', height:48, borderBottom:'1px solid var(--border)', background:'rgba(12,12,14,.98)', backdropFilter:'blur(12px)', flexShrink:0, zIndex:10 }
-const logo        = { display:'flex', alignItems:'center', gap:7, flexShrink:0 }
-const logoDot     = { display:'inline-block', width:8, height:8, borderRadius:'50%', background:'var(--amber)', boxShadow:'0 0 8px var(--amber)', animation:'pulse 2s infinite', flexShrink:0 }
+const logo        = { display:'flex', alignItems:'center', gap:8, flexShrink:0 }
 const logoText    = { fontFamily:'JetBrains Mono,monospace', fontWeight:500, fontSize:14, color:'var(--text)' }
 const desktopTabs = { display:'none', gap:3, flex:1, justifyContent:'center' }
 const desktopTab  = (a, d) => ({ display:'flex', alignItems:'center', gap:5, padding:'5px 13px', borderRadius:20, border:`1px solid ${a?'var(--amber-border)':d?'var(--green-border)':'transparent'}`, background:a?'var(--amber-dim)':d?'rgba(52,211,153,0.07)':'transparent', color:a?'var(--amber)':d?'var(--green)':'var(--text3)', fontSize:12.5, cursor:'pointer', fontFamily:'Space Grotesk,sans-serif', fontWeight:a?600:400, transition:'all .2s', whiteSpace:'nowrap' })
@@ -277,13 +274,10 @@ const iconBtn     = { display:'flex', alignItems:'center', gap:5, padding:'6px 1
 const iconBtn2    = ok => ({ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:20, border:`1px solid ${ok?'var(--amber-border)':'rgba(248,113,113,0.3)'}`, background:ok?'var(--amber-dim)':'var(--red-dim)', color:ok?'var(--amber)':'var(--red)', fontSize:12, cursor:'pointer', fontFamily:'Space Grotesk,sans-serif', whiteSpace:'nowrap' })
 const keyAlert    = { display:'inline-flex', alignItems:'center', justifyContent:'center', width:16, height:16, borderRadius:'50%', background:'var(--red)', color:'#fff', fontSize:10, fontWeight:700, marginLeft:2 }
 const mainContent = { flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }
-
-// Bottom nav
 const bottomNav   = { display:'none', position:'fixed', bottom:0, left:0, right:0, height:60, background:'rgba(12,12,14,0.97)', borderTop:'1px solid var(--border)', backdropFilter:'blur(16px)', zIndex:100, alignItems:'stretch' }
 const bottomTab   = (a, d) => ({ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', border:'none', background:'transparent', cursor: d?'not-allowed':'pointer', padding:'6px 0 4px', position:'relative' })
 const bottomTabIcon = (a, d) => ({ position:'relative', display:'flex', alignItems:'center', justifyContent:'center', width:40, height:28, borderRadius:12, background: a?'var(--amber-dim)': d?'rgba(52,211,153,0.1)':'transparent', transition:'all .2s' })
 const activeIndicator = { position:'absolute', bottom:-6, left:'50%', transform:'translateX(-50%)', width:4, height:4, borderRadius:'50%', background:'var(--amber)' }
-
 const noKeyWarn   = { display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', textAlign:'center', padding:24 }
 const warnBtn     = { display:'flex', alignItems:'center', gap:7, background:'linear-gradient(135deg,#f59e0b,#d97706)', border:'none', color:'#1a0f00', padding:'11px 24px', borderRadius:50, cursor:'pointer', fontSize:14, fontWeight:700, fontFamily:'Space Grotesk,sans-serif' }
 const overlay     = { position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(8px)', zIndex:150, display:'flex', alignItems:'center', justifyContent:'center', padding:20, animation:'fadeIn .2s ease' }
