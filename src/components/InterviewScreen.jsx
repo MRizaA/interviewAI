@@ -2,6 +2,30 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { buildSystemPrompt, callAI, processUploadedFile } from '../utils/helpers.js'
 import { Icon } from '../App.jsx'
 
+// ─── BCP-47 language code mapping untuk TTS & Speech Recognition ──────────
+// Browser hanya terima kode standar — petakan nama bahasa bebas ke kode ini.
+function getLangCode(lang) {
+  if (!lang) return 'id-ID'
+  const l = lang.toLowerCase().trim()
+  if (l.includes('indonesia') || l === 'id') return 'id-ID'
+  if (l.includes('japan') || l.includes('jepang') || l === 'ja') return 'ja-JP'
+  if (l.includes('mandarin') || l.includes('chinese') || l.includes('china') || l.includes('cina') || l === 'zh') return 'zh-CN'
+  if (l.includes('arabic') || l.includes('arab') || l === 'ar') return 'ar-SA'
+  if (l.includes('french') || l.includes('prancis') || l.includes('français') || l === 'fr') return 'fr-FR'
+  if (l.includes('german') || l.includes('jerman') || l === 'de') return 'de-DE'
+  if (l.includes('korean') || l.includes('korea') || l === 'ko') return 'ko-KR'
+  if (l.includes('spanish') || l.includes('spanyol') || l === 'es') return 'es-ES'
+  if (l.includes('portuguese') || l.includes('portugis') || l === 'pt') return 'pt-BR'
+  if (l.includes('thai') || l.includes('thailand') || l === 'th') return 'th-TH'
+  if (l.includes('hindi') || l === 'hi') return 'hi-IN'
+  if (l.includes('vietnam') || l === 'vi') return 'vi-VN'
+  if (l.includes('malay') || l.includes('melayu') || l === 'ms') return 'ms-MY'
+  if (l.includes('english') || l === 'en') return 'en-US'
+  // campur / mix default ke Indonesia
+  if (l.includes('+') || l.includes('campur')) return 'id-ID'
+  return 'en-US'
+}
+
 // ─── Strip markdown untuk TTS ──────────────────────────────────────────────
 function stripForSpeech(text) {
   return text
@@ -16,9 +40,7 @@ function stripForSpeech(text) {
 function parseMsg(text) {
   return text.split('\n').map((line, i) => {
     if (line.trim() === '') return <br key={i} />
-    if (line.startsWith('---')) return (
-      <hr key={i} style={{ border:'none',borderTop:'1px solid var(--border)',margin:'10px 0' }} />
-    )
+    if (line.startsWith('---')) return <hr key={i} style={{ border:'none',borderTop:'1px solid var(--border)',margin:'10px 0' }} />
     const parts = line.split(/\*\*(.*?)\*\*/g)
     return (
       <div key={i} style={{ margin:'2px 0',lineHeight:1.65 }}>
@@ -32,15 +54,13 @@ function parseMsg(text) {
 function useSpeechRecognition(lang, onResult) {
   const recogRef = useRef(null)
   const [listening, setListening] = useState(false)
-
-  const supported = typeof window !== 'undefined' &&
-    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+  const supported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
 
   const start = useCallback(() => {
     if (!supported) { alert('Browser kamu tidak mendukung speech recognition. Gunakan Chrome.'); return }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     const r  = new SR()
-    r.lang            = lang === 'Bahasa Indonesia' ? 'id-ID' : 'en-US'
+    r.lang            = getLangCode(lang)
     r.interimResults  = false
     r.maxAlternatives = 1
     r.onstart  = () => setListening(true)
@@ -67,7 +87,7 @@ function useTTS(lang) {
     if (!('speechSynthesis' in window)) { alert('Browser kamu tidak mendukung text-to-speech.'); return }
     window.speechSynthesis.cancel()
     const utt   = new SpeechSynthesisUtterance(stripForSpeech(text))
-    utt.lang    = lang === 'Bahasa Indonesia' ? 'id-ID' : 'en-US'
+    utt.lang    = getLangCode(lang)
     utt.rate    = 0.92
     utt.pitch   = 1
     utt.onstart = () => setSpeakingIdx(idx)
@@ -84,16 +104,52 @@ function useTTS(lang) {
   return { speakingIdx, speak, stop }
 }
 
-// ─── Avatar AI ────────────────────────────────────────────────────────────
+// ─── Avatar AI — logo tanpa border container ──────────────────────────────
 const AiAvatar = () => (
-  <div style={sAva('assistant')}>
-    <img
-      src="/img/logo/logo_v2.svg"
-      alt="AI"
-      style={{ width:50, height:50, }}
-    />
-  </div>
+  <img
+    src="/img/logo/logo_v2.svg"
+    alt="AI"
+    style={{ width:34, height:34, flexShrink:0, marginTop:2 }}
+  />
 )
+
+// ─── Export rangkuman sebagai TXT ─────────────────────────────────────────
+function exportTxt(msgs, profile) {
+  if (!msgs || msgs.length === 0) return
+  const now     = new Date().toLocaleString('id-ID')
+  const name    = profile.name || 'Kandidat'
+  const job     = profile.targetJob || '-'
+  const company = profile.targetCompany ? ` di ${profile.targetCompany}` : ''
+  const lang    = profile.interviewLang || '-'
+  const sep     = '─'.repeat(60)
+
+  const lines = [`RANGKUMAN SESI WAWANCARA`, sep, `Nama   : ${name}`, `Posisi : ${job}${company}`, `Bahasa : ${lang}`, `Waktu  : ${now}`, sep, '']
+
+  msgs.forEach(m => {
+    if (m.content === '[SESSION_START]') return
+    const who   = m.role === 'assistant' ? '[AI Coach]' : `[${name}]`
+    const clean = m.content.replace(/🎯\s*/g,'').replace(/✨\s*/g,'').replace(/➡️\s*/g,'').replace(/💡\s*/g,'').trim()
+    lines.push(who, clean, '')
+  })
+
+  lines.push(sep, 'Dibuat oleh Interview Coach AI — interviewai.my.id')
+
+  const blob = new Blob([lines.join('\n')], { type:'text/plain;charset=utf-8' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `wawancara-${name.replace(/\s+/g,'-').toLowerCase()}-${Date.now()}.txt`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// ─── Copy teks ke clipboard ───────────────────────────────────────────────
+function copyText(text, setCopied) {
+  navigator.clipboard.writeText(text).then(() => {
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }).catch(() => alert('Gagal menyalin teks.'))
+}
 
 // ─── Komponen utama ────────────────────────────────────────────────────────
 export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack }) {
@@ -102,12 +158,16 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
   const [input, setInput]               = useState('')
   const [loading, setLoading]           = useState(false)
   const [pendingFiles, setPendingFiles] = useState([])
+  const [copiedIdx, setCopiedIdx]       = useState(null)
 
   const bottomRef = useRef()
   const taRef     = useRef()
   const fileRef   = useRef()
 
-  const lang = profile.interviewLang || 'English'
+  const lang = profile.interviewLang || 'Indonesia + English'
+
+  // Hitung pertanyaan: jumlah pesan user yang dikirim (tidak termasuk SESSION_START)
+  const questionCount = msgs.filter(m => m.role === 'user' && m.content !== '[SESSION_START]').length
 
   const handleVoiceResult = useCallback((transcript) => {
     setInput(prev => prev ? prev + ' ' + transcript : transcript)
@@ -115,13 +175,9 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
 
   const { listening, start: startListening, stop: stopListening, supported: micSupported }
     = useSpeechRecognition(lang, handleVoiceResult)
-
   const { speakingIdx, speak, stop: stopSpeaking } = useTTS(lang)
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior:'smooth' })
-  }, [msgs, loading])
-
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }) }, [msgs, loading])
   useEffect(() => { return () => { window.speechSynthesis?.cancel() } }, [])
   useEffect(() => { runGreeting() }, []) // eslint-disable-line
 
@@ -135,7 +191,7 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
       setHistory([{ role:'user', content:'[SESSION_START]' }, { role:'assistant', content:reply }])
       setMsgs([{ role:'assistant', content:reply }])
     } catch (e) {
-      setMsgs([{ role:'assistant', content:`Gagal terhubung: ${e.message}\n\nPastikan API key sudah benar dan ada koneksi internet.` }])
+      setMsgs([{ role:'assistant', content:`Gagal terhubung: ${e.message}\n\nPastikan API / koneksi internet sudah benar.` }])
     }
     setLoading(false)
   }
@@ -146,13 +202,13 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
     const userText   = input.trim()
     setInput('')
     if (taRef.current) taRef.current.style.height = '24px'
-    const newMsgs    = [...msgs,    { role:'user', content:userText }]
+    const newMsgs    = [...msgs, { role:'user', content:userText }]
     const newHistory = [...history, { role:'user', content:userText }]
     setMsgs(newMsgs); setLoading(true)
     try {
       const reply = await callAI({ apiKey, system:buildSystemPrompt(profile,'interview'), messages:newHistory, files:pendingFiles, maxTokens:1500 })
       setHistory([...newHistory, { role:'assistant', content:reply }])
-      setMsgs([...newMsgs,       { role:'assistant', content:reply }])
+      setMsgs([...newMsgs, { role:'assistant', content:reply }])
       setPendingFiles([])
     } catch (e) {
       setMsgs([...newMsgs, { role:'assistant', content:`Error: ${e.message}` }])
@@ -160,9 +216,7 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
     setLoading(false)
   }
 
-  function handleKey(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
-  }
+  function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }
 
   async function handleFileAttach(rawFiles) {
     for (const f of Array.from(rawFiles)) {
@@ -178,7 +232,7 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
   return (
     <div style={sWrap}>
 
-      {/* Header */}
+      {/* ── Header ── */}
       <div style={sHdr}>
         <div style={{ display:'flex',alignItems:'center',gap:10 }}>
           <div style={sLiveDot} />
@@ -187,8 +241,9 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
               {profile.targetJob || 'Interview'}
               {profile.targetCompany ? ` · ${profile.targetCompany}` : ''}
             </div>
-            <div style={{ fontSize:11,color:'var(--text3)',marginTop:1,display:'flex',alignItems:'center',gap:6 }}>
+            <div style={{ fontSize:11,color:'var(--text3)',marginTop:1,display:'flex',alignItems:'center',gap:6,flexWrap:'wrap' }}>
               {profile.name} · {lang}
+              {questionCount > 0 && <span style={{ color:'var(--amber)', fontWeight:500 }}>· Pertanyaan ke-{questionCount}</span>}
               {uploadedFiles?.length > 0 && (
                 <span style={{ color:'var(--amber)',display:'flex',alignItems:'center',gap:3 }}>
                   <Icon name="clip" size={11} color="var(--amber)" /> {uploadedFiles.length} dok
@@ -197,7 +252,12 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
             </div>
           </div>
         </div>
-        <div style={{ display:'flex',gap:8 }}>
+        <div style={{ display:'flex',gap:6 }}>
+          {msgs.length > 1 && (
+            <button style={sHdrBtn} onClick={() => exportTxt(msgs, profile)} title="Simpan sebagai TXT">
+              <Icon name="file" size={14} color="var(--text2)" /> Simpan
+            </button>
+          )}
           <button style={sHdrBtn} onClick={onBack}>
             <Icon name="list" size={14} color="var(--text2)" /> Prediksi
           </button>
@@ -207,7 +267,7 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
         </div>
       </div>
 
-      {/* Chat area */}
+      {/* ── Chat area ── */}
       <div style={sChat}>
         {loading && msgs.length === 0 && (
           <div style={{ display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flex:1,gap:14 }}>
@@ -218,38 +278,41 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
 
         {msgs.map((m, i) => (
           <div key={i} style={{ display:'flex',gap:10,flexDirection:m.role==='user'?'row-reverse':'row',animation:'fadeUp .25s ease',marginBottom:16 }}>
-            {/* Avatar */}
             {m.role === 'assistant'
               ? <AiAvatar />
               : <div style={sAva('user')}><Icon name="user" size={16} color="var(--blue)" /></div>
             }
-            <div style={{ display:'flex',flexDirection:'column',gap:4,maxWidth:'calc(100% - 60px)',alignItems:m.role==='user'?'flex-end':'flex-start' }}>
+            <div style={{ display:'flex',flexDirection:'column',gap:4,maxWidth:'calc(100% - 54px)',alignItems:m.role==='user'?'flex-end':'flex-start' }}>
               <div style={sBubble(m.role)}>
                 {m.role === 'user' ? m.content : parseMsg(m.content)}
               </div>
-              {m.role === 'assistant' && (
-                <button
-                  style={sSpeakBtn(speakingIdx === i)}
-                  onClick={() => speakingIdx === i ? stopSpeaking() : speak(m.content, i)}
-                >
-                  <Icon
-                    name={speakingIdx === i ? 'speakerx' : 'speaker'}
-                    size={13}
-                    color={speakingIdx === i ? 'var(--amber)' : 'var(--text3)'}
-                  />
-                  {speakingIdx === i ? ' stop' : ' dengarkan'}
-                </button>
-              )}
+              {/* Action buttons bawah bubble */}
+              <div style={{ display:'flex',gap:8,alignItems:'center' }}>
+                {m.role === 'assistant' && (
+                  <>
+                    <button style={sActionBtn(speakingIdx === i)}
+                      onClick={() => speakingIdx === i ? stopSpeaking() : speak(m.content, i)}>
+                      <Icon name={speakingIdx === i ? 'speakerx' : 'speaker'} size={12}
+                        color={speakingIdx === i ? 'var(--amber)' : 'var(--text3)'} />
+                      {speakingIdx === i ? ' stop' : ' dengarkan'}
+                    </button>
+                    <button style={sActionBtn(copiedIdx === i)}
+                      onClick={() => copyText(m.content, (v) => { if (v) setCopiedIdx(i); else setCopiedIdx(null) })}>
+                      <Icon name="check" size={12} color={copiedIdx === i ? 'var(--green)' : 'var(--text3)'} />
+                      {copiedIdx === i ? ' disalin' : ' salin'}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         ))}
 
-        {/* Loading dots */}
         {loading && msgs.length > 0 && (
           <div style={{ display:'flex',gap:10,marginBottom:16 }}>
             <AiAvatar />
             <div style={{ ...sBubble('assistant'),display:'flex',alignItems:'center',gap:6,padding:'14px 16px' }}>
-              {[0, 0.15, 0.3].map((d, i) => (
+              {[0,0.15,0.3].map((d,i) => (
                 <div key={i} style={{ width:7,height:7,borderRadius:'50%',background:['var(--amber)','var(--green)','var(--blue)'][i],animation:`bounce 1.2s ${d}s infinite` }} />
               ))}
             </div>
@@ -259,7 +322,7 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
         <div ref={bottomRef} />
       </div>
 
-      {/* Input area */}
+      {/* ── Input area ── */}
       {msgs.length > 0 && (
         <div style={sInputArea}>
           {listening && (
@@ -274,7 +337,7 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
 
           {pendingFiles.length > 0 && (
             <div style={{ display:'flex',gap:6,flexWrap:'wrap',marginBottom:8 }}>
-              {pendingFiles.map((f, i) => (
+              {pendingFiles.map((f,i) => (
                 <div key={i} style={sFileChip}>
                   <Icon name="file" size={13} color="var(--amber)" />
                   <span style={{ fontSize:11,maxWidth:100,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{f.name}</span>
@@ -294,22 +357,14 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
             <input ref={fileRef} type="file" multiple accept=".pdf,.txt,.md,image/*"
               style={{ display:'none' }} onChange={e => handleFileAttach(e.target.files)} />
 
-            <textarea
-              ref={taRef}
-              value={input}
-              onChange={e => {
-                setInput(e.target.value)
-                e.target.style.height = '24px'
-                e.target.style.height = Math.min(e.target.scrollHeight, 130) + 'px'
-              }}
-              onKeyDown={handleKey}
-              disabled={loading}
+            <textarea ref={taRef} value={input}
+              onChange={e => { setInput(e.target.value); e.target.style.height='24px'; e.target.style.height=Math.min(e.target.scrollHeight,130)+'px' }}
+              onKeyDown={handleKey} disabled={loading}
               placeholder={listening ? 'Mendengarkan suaramu...' : 'Ketik atau tekan mic untuk bicara...'}
-              style={sTa}
-            />
+              style={sTa} />
 
             {micSupported && (
-              <button style={sMicBtn(listening)} onClick={toggleMic} disabled={loading} title={listening ? 'Stop' : 'Bicara'}>
+              <button style={sMicBtn(listening)} onClick={toggleMic} disabled={loading}>
                 <Icon name={listening ? 'speakerx' : 'mic'} size={17} color={listening ? 'var(--amber)' : 'var(--text3)'} />
               </button>
             )}
@@ -322,7 +377,7 @@ export default function InterviewScreen({ profile, uploadedFiles, apiKey, onBack
           <div style={{ fontSize:10.5,color:'var(--text3)',textAlign:'center',marginTop:6 }}>
             <span style={{ color:'var(--amber)' }}>Enter</span> kirim &nbsp;·&nbsp;
             <span style={{ color:'var(--amber)' }}>Shift+Enter</span> baris baru &nbsp;·&nbsp;
-            ikon mic untuk bicara langsung
+            mic untuk bicara langsung
           </div>
         </div>
       )}
@@ -337,9 +392,9 @@ const sLiveDot      = { width:9,height:9,borderRadius:'50%',background:'var(--am
 const sHdrBtn       = { display:'flex',alignItems:'center',gap:5,background:'rgba(255,255,255,0.05)',border:'1px solid var(--border)',color:'var(--text2)',padding:'6px 13px',borderRadius:20,cursor:'pointer',fontSize:12,fontFamily:'Space Grotesk,sans-serif' }
 const sChat         = { flex:1,overflowY:'auto',padding:'20px 16px',display:'flex',flexDirection:'column' }
 const sSpinner      = { width:32,height:32,border:'3px solid var(--border)',borderTopColor:'var(--amber)',borderRadius:'50%',animation:'spin .8s linear infinite' }
-const sAva          = r => ({ width:34,height:34,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:2,background:r==='assistant'?'#0f1118':'#0d1a2e',border:`1px solid ${r==='assistant'?'var(--amber-border)':'rgba(96,165,250,0.2)'}` })
+const sAva          = r => ({ width:34,height:34,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:2,background:'#0d1a2e',border:'1px solid rgba(96,165,250,0.2)' })
 const sBubble       = r => ({ padding:'12px 16px',borderRadius:18,fontSize:13.5,color:r==='user'?'#c8daff':'var(--text)',background:r==='user'?'linear-gradient(135deg,#0d1f3c,#091528)':'var(--bg2)',border:`1px solid ${r==='user'?'rgba(96,165,250,0.13)':'var(--border)'}`,borderTopLeftRadius:r==='assistant'?6:18,borderTopRightRadius:r==='user'?6:18 })
-const sSpeakBtn     = active => ({ display:'flex',alignItems:'center',gap:4,background:'none',border:'none',color:active?'var(--amber)':'var(--text3)',cursor:'pointer',fontSize:11,padding:'2px 6px',fontFamily:'Space Grotesk,sans-serif',transition:'color .2s' })
+const sActionBtn    = active => ({ display:'flex',alignItems:'center',gap:4,background:'none',border:'none',color:active?'var(--amber)':'var(--text3)',cursor:'pointer',fontSize:11,padding:'2px 6px',fontFamily:'Space Grotesk,sans-serif',transition:'color .2s' })
 const sInputArea    = { padding:'10px 14px 14px',borderTop:'1px solid var(--border)',background:'rgba(12,12,14,.98)',flexShrink:0 }
 const sListeningBar = { display:'flex',alignItems:'center',gap:8,padding:'7px 12px',background:'rgba(245,158,11,0.08)',border:'1px solid var(--amber-border)',borderRadius:10,marginBottom:8,fontSize:12,color:'var(--amber)' }
 const sListeningDot = { width:8,height:8,borderRadius:'50%',background:'var(--amber)',animation:'pulse 1s infinite',flexShrink:0 }

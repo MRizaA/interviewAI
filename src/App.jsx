@@ -1,10 +1,25 @@
 import { useState } from 'react'
-import { store } from './utils/helpers.js'
+import { store, getCFSessionsToday } from './utils/helpers.js'
 import SetupScreen from './components/SetupScreen.jsx'
 import PrepScreen from './components/PrepScreen.jsx'
 import InterviewScreen from './components/InterviewScreen.jsx'
 import ApiKeyManager from './components/ApiKeyManager.jsx'
 import DonateModal from './components/DonateModal.jsx'
+
+// ─── Entry permanent Cloudflare — selalu ada, tidak bisa dihapus ──────────
+const CF_PERMANENT_ENTRY = {
+  id: 'cf_permanent',
+  label: 'Interviewer AI (terbatas)',
+  key: 'CF_WORKERS',
+  permanent: true,
+}
+
+function initKeys() {
+  const stored = store.get('ic3_keys', [])
+  // Pastikan CF entry selalu ada di posisi pertama
+  const withoutCF = stored.filter(k => k.key !== 'CF_WORKERS')
+  return [CF_PERMANENT_ENTRY, ...withoutCF]
+}
 
 // ─── SVG Icon set ──────────────────────────────────────────────────────────
 const Icon = ({ name, size = 18, color = 'currentColor', strokeWidth = 1.7 }) => {
@@ -15,7 +30,7 @@ const Icon = ({ name, size = 18, color = 'currentColor', strokeWidth = 1.7 }) =>
     list:      <><rect x="4" y="4" width="16" height="16" rx="3" {...p}/><path d="M8 9h8M8 12h6M8 15h4" {...p}/></>,
     mic:       <><rect x="9" y="2" width="6" height="11" rx="3" {...p}/><path d="M5 10a7 7 0 0014 0M12 19v3M8 22h8" {...p}/></>,
     key:       <><circle cx="8" cy="14" r="4" {...p}/><path d="M12 14h9M18 14v3" {...p}/></>,
-    coffee:    <><path d="M6 2h12l-2 14H8L6 2z" {...p}/><path d="M18 6h2a2 2 0 010 4h-2M3 22h18" {...p}/></>,
+    heart:     <><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" {...p}/></>,
     settings:  <><circle cx="12" cy="12" r="3" {...p}/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" {...p}/></>,
     check:     <><polyline points="20 6 9 17 4 12" {...p}/></>,
     warning:   <><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" {...p}/><line x1="12" y1="9" x2="12" y2="13" {...p}/><line x1="12" y1="17" x2="12.01" y2="17" {...p}/></>,
@@ -34,7 +49,6 @@ const Icon = ({ name, size = 18, color = 'currentColor', strokeWidth = 1.7 }) =>
     x:         <><line x1="18" y1="6" x2="6" y2="18" {...p}/><line x1="6" y1="6" x2="18" y2="18" {...p}/></>,
     plus:      <><line x1="12" y1="5" x2="12" y2="19" {...p}/><line x1="5" y1="12" x2="19" y2="12" {...p}/></>,
     eye:       <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" {...p}/><circle cx="12" cy="12" r="3" {...p}/></>,
-    eye_off:   <><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22" {...p}/></>,
     send:      <><line x1="22" y1="2" x2="11" y2="13" {...p}/><polygon points="22 2 15 22 11 13 2 9 22 2" {...p}/></>,
     circle_ok: <><path d="M22 11.08V12a10 10 0 11-5.93-9.14" {...p}/><polyline points="22 4 12 14.01 9 11.01" {...p}/></>,
   }
@@ -49,24 +63,56 @@ export { Icon }
 
 // ─── App ───────────────────────────────────────────────────────────────────
 export default function App() {
-  const [screen, setScreen]           = useState('setup')
-  const [profile, setProfile]         = useState(store.get('ic3_profile', {}))
+  const [screen, setScreen]               = useState('setup')
+  const [profile, setProfile]             = useState(store.get('ic3_profile', {}))
   const [uploadedFiles, setUploadedFiles] = useState([])
-  const [showKeyMgr, setShowKeyMgr]   = useState(false)
+  const [showKeyMgr, setShowKeyMgr]       = useState(false)
   const [showNavChoice, setShowNavChoice] = useState(false)
-  const [showDonate, setShowDonate]   = useState(false)
-  const [apiKeys, setApiKeys]         = useState(() => store.get('ic3_keys', []))
-  const [activeKey, setActiveKey]     = useState(() => store.get('ic3_active', null))
+  const [showDonate, setShowDonate]       = useState(false)
 
-  const saveKeys   = ks => { setApiKeys(ks); store.set('ic3_keys', ks) }
-  const saveActive = k  => { setActiveKey(k); store.set('ic3_active', k) }
-  const addKey     = k  => { const u=[...apiKeys,k]; saveKeys(u); if(!activeKey) saveActive(k) }
-  const removeKey  = id => { const u=apiKeys.filter(k=>k.id!==id); saveKeys(u); if(activeKey?.id===id) saveActive(u[0]||null) }
+  // CF_PERMANENT_ENTRY selalu ada di index 0, user keys di belakangnya
+  const [apiKeys, setApiKeys] = useState(initKeys)
+
+  // Default active: CF_PERMANENT_ENTRY jika belum ada pilihan tersimpan
+  const [activeKey, setActiveKey] = useState(() => {
+    const saved = store.get('ic3_active', null)
+    if (saved && saved.key === 'CF_WORKERS') return CF_PERMANENT_ENTRY
+    if (saved) return saved
+    return CF_PERMANENT_ENTRY // default pertama kali
+  })
+
+  const saveKeys = ks => {
+    // Simpan ke localStorage hanya yang bukan permanent
+    const toStore = ks.filter(k => !k.permanent)
+    store.set('ic3_keys', toStore)
+    // Pastikan CF tetap di index 0 di state
+    const withoutCF = ks.filter(k => !k.permanent)
+    setApiKeys([CF_PERMANENT_ENTRY, ...withoutCF])
+  }
+
+  const saveActive = k => { setActiveKey(k); store.set('ic3_active', k) }
+
+  const addKey = k => {
+    const current = apiKeys.filter(x => !x.permanent)
+    const u = [...current, k]
+    const withCF = [CF_PERMANENT_ENTRY, ...u]
+    store.set('ic3_keys', u)
+    setApiKeys(withCF)
+    if (!activeKey || activeKey.key === 'CF_WORKERS') saveActive(k)
+  }
+
+  const removeKey = id => {
+    // Tidak bisa hapus CF permanent
+    if (id === 'cf_permanent') return
+    const u = apiKeys.filter(k => k.id !== id && !k.permanent)
+    const withCF = [CF_PERMANENT_ENTRY, ...u]
+    store.set('ic3_keys', u)
+    setApiKeys(withCF)
+    if (activeKey?.id === id) saveActive(withCF[0] || CF_PERMANENT_ENTRY)
+  }
 
   const handleStart = (p) => {
-    setProfile(p)
-    store.set('ic3_profile', p)
-    if (!activeKey) { setShowKeyMgr(true); return }
+    setProfile(p); store.set('ic3_profile', p)
     setShowNavChoice(true)
   }
 
@@ -83,24 +129,18 @@ export default function App() {
 
       {/* ── Top bar ── */}
       <header style={topBar}>
-        {/* Logo */}
         <div style={logo}>
-          <img
-            src="/img/logo/logo_v2.svg"
-            alt="Interview.AI logo"
-            style={{ width:22, height:22, flexShrink:0 }}
-          />
+          <img src="/img/logo/logo_v2.svg" alt="Interview.AI" style={{ width:22, height:22, flexShrink:0 }} />
           <span style={logoText}>Interview<span style={{ color:'var(--amber)' }}>.AI</span></span>
         </div>
 
-        {/* Desktop tabs */}
         <nav style={desktopTabs} className="desktop-nav">
           {NAV.map(({ id, icon, label }) => {
             const idx      = NAV.findIndex(n => n.id === id)
             const curIdx   = NAV.findIndex(n => n.id === screen)
             const isActive = screen === id
             const isDone   = idx < curIdx
-            const disabled = (id==='prep' || id==='interview') && !profile?.name
+            const disabled = (id === 'prep' || id === 'interview') && !profile?.name
             return (
               <button key={id} style={desktopTab(isActive, isDone)} disabled={disabled}
                 onClick={() => !disabled && setScreen(id)}>
@@ -112,16 +152,14 @@ export default function App() {
           })}
         </nav>
 
-        {/* Right actions */}
         <div style={topActions}>
-          <button style={iconBtn} onClick={() => setShowDonate(true)} title="Donasi">
-            <Icon name="coffee" size={17} color="var(--amber)" />
-            <span className="btn-label"> Donasi</span>
+          <button style={dukungBtn} onClick={() => setShowDonate(true)} title="Dukung pengembangan">
+            <Icon name="heart" size={15} color="#ec4899" />
+            <span className="btn-label"> Dukung</span>
           </button>
-          <button style={iconBtn2(!!activeKey)} onClick={() => setShowKeyMgr(true)} title="API Key">
-            <Icon name="key" size={17} color={activeKey ? 'var(--amber)' : 'var(--red)'} />
-            <span className="btn-label"> {activeKey ? activeKey.label : 'API Key'}</span>
-            {!activeKey && <span style={keyAlert}>!</span>}
+          <button style={keyBtn(!!activeKey)} onClick={() => setShowKeyMgr(true)} title="Pengaturan AI">
+            <Icon name="key" size={15} color={activeKey ? 'var(--amber)' : 'var(--red)'} />
+            <span className="btn-label"> {activeKey ? activeKey.label : 'Pilih AI'}</span>
           </button>
         </div>
       </header>
@@ -129,36 +167,17 @@ export default function App() {
       {/* ── Screen content ── */}
       <main style={mainContent}>
         {screen === 'setup' && (
-          <SetupScreen
-            initial={profile} uploadedFiles={uploadedFiles}
-            onFilesChange={setUploadedFiles} onStart={handleStart}
-          />
+          <SetupScreen initial={profile} uploadedFiles={uploadedFiles}
+            onFilesChange={setUploadedFiles} onStart={handleStart} />
         )}
         {screen === 'prep' && activeKey && (
-          <PrepScreen
-            profile={profile} apiKey={activeKey.key}
+          <PrepScreen profile={profile} apiKey={activeKey.key}
             uploadedFiles={uploadedFiles}
-            onStartInterview={() => setScreen('interview')}
-            onBack={() => setScreen('setup')}
-          />
+            onStartInterview={() => setScreen('interview')} onBack={() => setScreen('setup')} />
         )}
         {screen === 'interview' && activeKey && (
-          <InterviewScreen
-            profile={profile} uploadedFiles={uploadedFiles}
-            apiKey={activeKey.key} onBack={() => setScreen('prep')}
-          />
-        )}
-        {!activeKey && screen !== 'setup' && (
-          <div style={noKeyWarn}>
-            <Icon name="key" size={40} color="var(--text3)" />
-            <div style={{ fontWeight:700,fontSize:16,marginBottom:6,marginTop:14 }}>API Key belum diset</div>
-            <div style={{ fontSize:13,color:'var(--text2)',marginBottom:20 }}>
-              Tambahkan API key Gemini atau OpenRouter untuk menggunakan fitur ini
-            </div>
-            <button style={warnBtn} onClick={() => setShowKeyMgr(true)}>
-              <Icon name="plus" size={15} color="#1a0f00" /> Tambah API Key
-            </button>
-          </div>
+          <InterviewScreen profile={profile} uploadedFiles={uploadedFiles}
+            apiKey={activeKey.key} onBack={() => setScreen('prep')} />
         )}
       </main>
 
@@ -169,17 +188,13 @@ export default function App() {
           const curIdx   = NAV.findIndex(n => n.id === screen)
           const isActive = screen === id
           const isDone   = idx < curIdx
-          const disabled = (id==='prep' || id==='interview') && !profile?.name
+          const disabled = (id === 'prep' || id === 'interview') && !profile?.name
           return (
-            <button key={id} style={bottomTab(isActive, disabled)}
-              disabled={disabled}
+            <button key={id} style={bottomTab(isActive, disabled)} disabled={disabled}
               onClick={() => !disabled && setScreen(id)}>
               <div style={bottomTabIcon(isActive, isDone)}>
-                <Icon
-                  name={isDone ? 'check' : icon}
-                  size={20}
-                  color={isActive ? 'var(--amber)' : isDone ? 'var(--green)' : disabled ? 'var(--text3)' : 'var(--text2)'}
-                />
+                <Icon name={isDone ? 'check' : icon} size={20}
+                  color={isActive ? 'var(--amber)' : isDone ? 'var(--green)' : disabled ? 'var(--text3)' : 'var(--text2)'} />
                 {isActive && <div style={activeIndicator} />}
               </div>
               <span style={{ fontSize:10.5, color: isActive ? 'var(--amber)' : isDone ? 'var(--green)' : disabled ? 'var(--text3)' : 'var(--text2)', marginTop:3, fontWeight: isActive ? 600 : 400 }}>
@@ -222,11 +237,9 @@ export default function App() {
 
       {/* ── Modals ── */}
       {showKeyMgr && (
-        <ApiKeyManager
-          keys={apiKeys} activeKey={activeKey}
+        <ApiKeyManager keys={apiKeys} activeKey={activeKey}
           onAdd={addKey} onRemove={removeKey} onSetActive={saveActive}
-          onClose={() => { setShowKeyMgr(false); if (activeKey && profile?.name) setShowNavChoice(true) }}
-        />
+          onClose={() => setShowKeyMgr(false)} />
       )}
       {showDonate && <DonateModal onClose={() => setShowDonate(false)} />}
 
@@ -242,16 +255,15 @@ export default function App() {
         button { transition: opacity .15s, transform .15s }
         button:active { transform:scale(.97) }
         button:hover:not(:disabled) { opacity:.85 }
-
         @media (min-width: 641px) {
-          .mobile-nav { display: none !important; }
+          .mobile-nav  { display: none !important; }
           .desktop-nav { display: flex !important; }
-          .btn-label { display: inline !important; }
+          .btn-label   { display: inline !important; }
         }
         @media (max-width: 640px) {
-          .mobile-nav { display: flex !important; }
+          .mobile-nav  { display: flex !important; }
           .desktop-nav { display: none !important; }
-          .btn-label { display: none !important; }
+          .btn-label   { display: none !important; }
           main { padding-bottom: 64px; }
         }
         @media (max-width: 640px) {
@@ -262,24 +274,21 @@ export default function App() {
   )
 }
 
-// ─── Styles ────────────────────────────────────────────────────────────────
-const appWrap     = { height:'100dvh', display:'flex', flexDirection:'column', overflow:'hidden' }
-const topBar      = { display:'flex', alignItems:'center', gap:8, padding:'0 12px', height:48, borderBottom:'1px solid var(--border)', background:'rgba(12,12,14,.98)', backdropFilter:'blur(12px)', flexShrink:0, zIndex:10 }
-const logo        = { display:'flex', alignItems:'center', gap:8, flexShrink:0 }
-const logoText    = { fontFamily:'JetBrains Mono,monospace', fontWeight:500, fontSize:14, color:'var(--text)' }
-const desktopTabs = { display:'none', gap:3, flex:1, justifyContent:'center' }
-const desktopTab  = (a, d) => ({ display:'flex', alignItems:'center', gap:5, padding:'5px 13px', borderRadius:20, border:`1px solid ${a?'var(--amber-border)':d?'var(--green-border)':'transparent'}`, background:a?'var(--amber-dim)':d?'rgba(52,211,153,0.07)':'transparent', color:a?'var(--amber)':d?'var(--green)':'var(--text3)', fontSize:12.5, cursor:'pointer', fontFamily:'Space Grotesk,sans-serif', fontWeight:a?600:400, transition:'all .2s', whiteSpace:'nowrap' })
-const topActions  = { display:'flex', gap:5, alignItems:'center', marginLeft:'auto', flexShrink:0 }
-const iconBtn     = { display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:20, border:'1px solid rgba(245,158,11,0.3)', background:'rgba(245,158,11,0.08)', color:'var(--amber)', fontSize:12, cursor:'pointer', fontFamily:'Space Grotesk,sans-serif', whiteSpace:'nowrap' }
-const iconBtn2    = ok => ({ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:20, border:`1px solid ${ok?'var(--amber-border)':'rgba(248,113,113,0.3)'}`, background:ok?'var(--amber-dim)':'var(--red-dim)', color:ok?'var(--amber)':'var(--red)', fontSize:12, cursor:'pointer', fontFamily:'Space Grotesk,sans-serif', whiteSpace:'nowrap' })
-const keyAlert    = { display:'inline-flex', alignItems:'center', justifyContent:'center', width:16, height:16, borderRadius:'50%', background:'var(--red)', color:'#fff', fontSize:10, fontWeight:700, marginLeft:2 }
-const mainContent = { flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }
-const bottomNav   = { display:'none', position:'fixed', bottom:0, left:0, right:0, height:60, background:'rgba(12,12,14,0.97)', borderTop:'1px solid var(--border)', backdropFilter:'blur(16px)', zIndex:100, alignItems:'stretch' }
-const bottomTab   = (a, d) => ({ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', border:'none', background:'transparent', cursor: d?'not-allowed':'pointer', padding:'6px 0 4px', position:'relative' })
-const bottomTabIcon = (a, d) => ({ position:'relative', display:'flex', alignItems:'center', justifyContent:'center', width:40, height:28, borderRadius:12, background: a?'var(--amber-dim)': d?'rgba(52,211,153,0.1)':'transparent', transition:'all .2s' })
+const appWrap       = { height:'100dvh', display:'flex', flexDirection:'column', overflow:'hidden' }
+const topBar        = { display:'flex', alignItems:'center', gap:8, padding:'0 12px', height:48, borderBottom:'1px solid var(--border)', background:'rgba(12,12,14,.98)', backdropFilter:'blur(12px)', flexShrink:0, zIndex:10 }
+const logo          = { display:'flex', alignItems:'center', gap:8, flexShrink:0 }
+const logoText      = { fontFamily:'JetBrains Mono,monospace', fontWeight:500, fontSize:14, color:'var(--text)' }
+const desktopTabs   = { display:'none', gap:3, flex:1, justifyContent:'center' }
+const desktopTab    = (a, d) => ({ display:'flex', alignItems:'center', gap:5, padding:'5px 13px', borderRadius:20, border:`1px solid ${a?'var(--amber-border)':d?'var(--green-border)':'transparent'}`, background:a?'var(--amber-dim)':d?'rgba(52,211,153,0.07)':'transparent', color:a?'var(--amber)':d?'var(--green)':'var(--text3)', fontSize:12.5, cursor:'pointer', fontFamily:'Space Grotesk,sans-serif', fontWeight:a?600:400, transition:'all .2s', whiteSpace:'nowrap' })
+const topActions    = { display:'flex', gap:5, alignItems:'center', marginLeft:'auto', flexShrink:0 }
+const dukungBtn     = { display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:20, border:'1px solid rgba(236,72,153,0.3)', background:'rgba(236,72,153,0.07)', color:'#ec4899', fontSize:12, cursor:'pointer', fontFamily:'Space Grotesk,sans-serif', whiteSpace:'nowrap' }
+const keyBtn        = ok => ({ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:20, border:`1px solid ${ok?'var(--amber-border)':'rgba(248,113,113,0.3)'}`, background:ok?'var(--amber-dim)':'var(--red-dim)', color:ok?'var(--amber)':'var(--red)', fontSize:12, cursor:'pointer', fontFamily:'Space Grotesk,sans-serif', whiteSpace:'nowrap' })
+const mainContent   = { flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }
+const bottomNav     = { display:'none', position:'fixed', bottom:0, left:0, right:0, height:60, background:'rgba(12,12,14,0.97)', borderTop:'1px solid var(--border)', backdropFilter:'blur(16px)', zIndex:100, alignItems:'stretch' }
+const bottomTab     = (a, d) => ({ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', border:'none', background:'transparent', cursor:d?'not-allowed':'pointer', padding:'6px 0 4px', position:'relative' })
+const bottomTabIcon = (a, d) => ({ position:'relative', display:'flex', alignItems:'center', justifyContent:'center', width:40, height:28, borderRadius:12, background:a?'var(--amber-dim)':d?'rgba(52,211,153,0.1)':'transparent', transition:'all .2s' })
 const activeIndicator = { position:'absolute', bottom:-6, left:'50%', transform:'translateX(-50%)', width:4, height:4, borderRadius:'50%', background:'var(--amber)' }
-const noKeyWarn   = { display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', textAlign:'center', padding:24 }
-const warnBtn     = { display:'flex', alignItems:'center', gap:7, background:'linear-gradient(135deg,#f59e0b,#d97706)', border:'none', color:'#1a0f00', padding:'11px 24px', borderRadius:50, cursor:'pointer', fontSize:14, fontWeight:700, fontFamily:'Space Grotesk,sans-serif' }
-const overlay     = { position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(8px)', zIndex:150, display:'flex', alignItems:'center', justifyContent:'center', padding:20, animation:'fadeIn .2s ease' }
-const choiceModal = { background:'var(--bg2)', border:'1px solid var(--border2)', borderRadius:20, padding:28, width:'100%', maxWidth:400, animation:'popIn .25s ease' }
-const choiceBtn   = c => ({ display:'flex', gap:14, alignItems:'center', padding:'14px 16px', borderRadius:14, border:`1px solid ${c==='amber'?'var(--amber-border)':'var(--green-border)'}`, background:c==='amber'?'var(--amber-dim)':'rgba(52,211,153,0.07)', color:c==='amber'?'var(--amber)':'var(--green)', cursor:'pointer', fontFamily:'Space Grotesk,sans-serif', textAlign:'left', width:'100%' })
+const noKeyWarn     = { display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', textAlign:'center', padding:24 }
+const overlay       = { position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(8px)', zIndex:150, display:'flex', alignItems:'center', justifyContent:'center', padding:20, animation:'fadeIn .2s ease' }
+const choiceModal   = { background:'var(--bg2)', border:'1px solid var(--border2)', borderRadius:20, padding:28, width:'100%', maxWidth:400, animation:'popIn .25s ease' }
+const choiceBtn     = c => ({ display:'flex', gap:14, alignItems:'center', padding:'14px 16px', borderRadius:14, border:`1px solid ${c==='amber'?'var(--amber-border)':'var(--green-border)'}`, background:c==='amber'?'var(--amber-dim)':'rgba(52,211,153,0.07)', color:c==='amber'?'var(--amber)':'var(--green)', cursor:'pointer', fontFamily:'Space Grotesk,sans-serif', textAlign:'left', width:'100%' })
