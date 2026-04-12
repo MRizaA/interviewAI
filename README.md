@@ -27,9 +27,9 @@ Aplikasi ini menggunakan AI dari Google Gemini. API key-nya **gratis**:
 1. Buka [aistudio.google.com](https://aistudio.google.com)
 2. Login dengan akun Google
 3. Klik **"Get API Key"** → **"Create API Key"**
-4. Copy key-nya (format: `AIza...`)
+4. Copy key-nya
 
-> 💡 Tidak mau pakai Gemini? Bisa juga pakai [OpenRouter](https://openrouter.ai) (banyak model gratis) atau Anthropic Claude.
+> 💡 Tidak mau pakai Gemini? Bisa juga pakai api lain bebeas pilih
 
 ### 2. Buka Aplikasi
 
@@ -37,10 +37,10 @@ Kunjungi aplikasi dan masukan api mu.
 
 ### 3. Isi Profil
 
-- Nama, pendidikan, pengalaman, skills
-- Posisi yang dilamar & nama perusahaan
-- Pilih bahasa: **English**, **Bahasa Indonesia**, atau **keduanya (campur)**
-- Upload CV / job description kalau ada (PDF, gambar, txt)
+- Cukup isi Nama & Posisi yang dilamar sudah bisa langsung wawancara
+- Tambahkan pendidikan, pengalaman, skills & nama perusahaan untuk hasil yang lebih akurat
+- Pilih bahasa: English, Bahasa Indonesia, atau bahsa lainya
+- Bisa upload CV / job description kalau ada (PDF, gambar, txt)
 
 ### 4. Lihat Prediksi Pertanyaan
 
@@ -60,9 +60,11 @@ Klik **"Mulai Wawancara"** — AI akan menyapa dan memandu sesi latihan:
 
 | Setting | Pertanyaan AI | Feedback |
 |---|---|---|
+| **Default** | Inggris + terjemahan | Indonesia|
 | **English** | Inggris | Inggris (koreksi grammar) |
 | **Bahasa Indonesia** | Indonesia | Indonesia |
-| **Both (campur)** | Inggris + terjemahan | Indonesia + versi Inggris |
+| **Bahasa lain(isi sendiri)** | Aksara bahasa asing yang dipilih | bisa pakai bahasa yang kamu mau|
+
 
 ---
 
