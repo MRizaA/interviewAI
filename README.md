@@ -91,4 +91,4 @@ Aplikasi ini gratis dan open source. Kalau terasa membantu, boleh traktir admin:
 
 ---
 
-*Interview Coach AI bukan afiliasi perusahaan manapun.*
+*Interview Coach AI bukan afiliasi perusahaan manapun.* 
