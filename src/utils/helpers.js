@@ -8,6 +8,8 @@ export const store = {
 // ─── Cloudflare Workers AI config ────────────────────────────────────────
 const CF_WORKER_URL  = 'https://dry-truth-964a.mra474188.workers.dev/'
 const CF_DAILY_LIMIT = 30
+// Harus sama persis dengan APP_SECRET di environment variable CF Worker
+const CF_APP_SECRET  = import.meta.env.VITE_CF_SECRET || ''
 
 export function getCFSessionsToday() {
   const today = new Date().toISOString().slice(0, 10)
@@ -179,7 +181,10 @@ async function callCloudflareWorker({ system, messages, maxTokens }) {
   }
   const res = await fetch(CF_WORKER_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-App-Secret': CF_APP_SECRET,
+    },
     body: JSON.stringify({ system, messages, maxTokens }),
   })
   if (!res.ok) throw new Error(`Cloudflare error: HTTP ${res.status}`)

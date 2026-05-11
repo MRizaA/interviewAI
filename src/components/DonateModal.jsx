@@ -29,8 +29,12 @@ export default function DonateModal({ onClose }) {
 
         <p style={warmth}>Semoga dapat pekerjaan yang sesuai ya.</p>
 
-        <a href={MAYAR_LINK} target="_blank" rel="noopener noreferrer" style={mainBtn}>
+        <a href={MAYAR_LINK} target="_blank" rel="noopener noreferrer" style={donateBtn}>
           bantu donasi admin beli kuota
+        </a>
+
+        <a href="https://mrizaa.github.io/portofolio-interaktif-gaya-visual-novel/?modal=profile" target="_blank" rel="noopener noreferrer" style={contactBtn}>
+          kenalan sama admin
         </a>
 
         <button style={shareBtn} onClick={shareApp}>
@@ -50,7 +54,7 @@ const tag     = { fontFamily:'JetBrains Mono, monospace', fontSize:10, color:'#5
 const body    = { fontFamily:'Space Grotesk, sans-serif', fontSize:18, fontWeight:700, color:'#f59e0b', lineHeight:1.6, margin:'0 0 14px' }
 const muted   = { fontWeight:400, color:'#f0ede8', fontSize:14 }
 const warmth  = { fontSize:13, color:'#6b6560', fontStyle:'italic', margin:'0 0 24px' }
-const mainBtn = { display:'block', textAlign:'center', textDecoration:'none', background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#1a0f00', padding:'13px 20px', borderRadius:12, fontWeight:700, fontSize:14, fontFamily:'Space Grotesk, sans-serif', marginBottom:8 }
-// Share button: abu-abu terang agar terlihat di background gelap, beda dari tombol oranye
+const donateBtn = { display:'block', textAlign:'center', textDecoration:'none', background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#1a0f00', padding:'13px 20px', borderRadius:12, fontWeight:700, fontSize:14, fontFamily:'Space Grotesk, sans-serif', marginBottom:8 }
+const contactBtn = { display:'block', textAlign:'center', textDecoration:'none', background:'#ffffff', color:'#0f0f13', padding:'11px 20px', borderRadius:12, fontSize:14, fontWeight:700, fontFamily:'Space Grotesk, sans-serif', marginBottom:8 }
 const shareBtn = { display:'block', width:'100%', textAlign:'center', background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.25)', color:'rgba(255,255,255,0.75)', padding:'11px 20px', borderRadius:12, cursor:'pointer', fontSize:13, fontFamily:'Space Grotesk, sans-serif', marginBottom:20 }
 const footer  = { textAlign:'center', fontSize:11, color:'#333', fontStyle:'italic' }
